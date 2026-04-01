@@ -12,10 +12,9 @@ import BodyScreen from './src/screens/BodyScreen';
 import DietScreen from './src/screens/DietScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import AICoachScreen from './src/screens/AICoachScreen';
-import { getStoredUser, getAccessToken, clearUser } from './src/services/auth';
+import { getStoredUser, getAccessTokenSync, logout as authLogout } from './src/services/auth';
 import { initDatabase } from './src/services/database';
 import { geminiService } from './src/services/gemini';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
@@ -51,11 +50,8 @@ export default function App() {
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
-  const handleLogout = async () => {
-    await clearUser();
-    await AsyncStorage.removeItem('google_access_token');
-    geminiService.setAccessToken('');
-    setIsLoggedIn(false);
+  const handleLogout = () => {
+    authLogout(); // clears storage and reloads page on web
   };
 
   useEffect(() => {
@@ -63,7 +59,7 @@ export default function App() {
       try {
         await initDatabase();
         const user = await getStoredUser();
-        const token = await getAccessToken();
+        const token = getAccessTokenSync();
         if (token) geminiService.setAccessToken(token);
         setIsLoggedIn(user !== null);
       } catch {

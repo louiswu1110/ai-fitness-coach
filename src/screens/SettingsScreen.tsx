@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../utils/useColorScheme';
 import { geminiService } from '../services/gemini';
-import { clearUser } from '../services/auth';
+import { logout as authLogout } from '../services/auth';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
 
 interface Props {
@@ -126,9 +126,8 @@ export default function SettingsScreen({ onClose, onLogout }: Props) {
       {
         text: '登出',
         style: 'destructive',
-        onPress: async () => {
-          await clearUser();
-          onLogout?.();
+        onPress: () => {
+          authLogout();
         },
       },
     ]);

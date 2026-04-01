@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth';
+import { getAccessTokenSync } from './auth';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODEL = 'gemini-2.0-flash';
@@ -8,17 +8,20 @@ class GeminiService {
 
   async ensureInitialized(): Promise<boolean> {
     if (!this.accessToken) {
-      this.accessToken = await getAccessToken();
+      this.accessToken = getAccessTokenSync();
     }
-    return this.accessToken != null;
+    console.log('[Gemini] ensureInitialized, token:', this.accessToken ? 'YES' : 'NO');
+    return this.accessToken != null && this.accessToken.length > 0;
   }
 
   get isConfigured(): boolean {
-    return this.accessToken != null;
+    if (!this.accessToken) this.accessToken = getAccessTokenSync();
+    return this.accessToken != null && this.accessToken.length > 0;
   }
 
   setAccessToken(token: string) {
     this.accessToken = token;
+    console.log('[Gemini] token set, length:', token.length);
   }
 
   async analyzeFood(imageBase64: string): Promise<Record<string, any>> {

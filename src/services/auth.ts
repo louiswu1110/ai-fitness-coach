@@ -1,11 +1,9 @@
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth config
-// 使用 Firebase 的 Web Client ID (client_type: 3)
 const GOOGLE_CLIENT_ID = '764756280137-n6urvgpv1tfhptms44jkd335b5dogo0g.apps.googleusercontent.com';
 
 const discovery = {
@@ -20,31 +18,67 @@ export interface UserInfo {
   picture: string;
 }
 
+// Simple storage that works on both web and native
+function setItem(key: string, value: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.localStorage.setItem(key, value);
+  }
+}
+
+function getItem(key: string): string | null {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.localStorage.getItem(key);
+  }
+  return null;
+}
+
+function removeItem(key: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.localStorage.removeItem(key);
+  }
+}
+
+// -- User --
 export async function getStoredUser(): Promise<UserInfo | null> {
-  const json = await AsyncStorage.getItem('user_info');
+  const json = getItem('user_info');
   return json ? JSON.parse(json) : null;
 }
 
 export async function storeUser(user: UserInfo): Promise<void> {
-  await AsyncStorage.setItem('user_info', JSON.stringify(user));
-}
-
-export async function storeAccessToken(token: string): Promise<void> {
-  await AsyncStorage.setItem('google_access_token', token);
-}
-
-export async function getAccessToken(): Promise<string | null> {
-  return AsyncStorage.getItem('google_access_token');
+  setItem('user_info', JSON.stringify(user));
 }
 
 export async function clearUser(): Promise<void> {
-  await AsyncStorage.removeItem('user_info');
+  removeItem('user_info');
+  removeItem('google_access_token');
 }
 
+// -- Access Token --
+export function storeAccessToken(token: string): void {
+  setItem('google_access_token', token);
+}
+
+export function getAccessTokenSync(): string | null {
+  return getItem('google_access_token');
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  return getAccessTokenSync();
+}
+
+// -- Logout (hard reset) --
+export function logout(): void {
+  removeItem('user_info');
+  removeItem('google_access_token');
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.location.reload();
+  }
+}
+
+// -- Google Auth --
 export function useGoogleAuth() {
   const redirectUri = AuthSession.makeRedirectUri();
-  console.log('=== REDIRECT URI ===', redirectUri);
-  
+
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,

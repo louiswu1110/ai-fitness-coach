@@ -17,20 +17,31 @@ export default function LoginScreen({ onLogin, onSkip }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (response?.type === 'success' && response.authentication?.accessToken) {
-      setLoading(true);
-      setError(null);
-      const token = response.authentication.accessToken;
-      storeAccessToken(token);
-      geminiService.setAccessToken(token);
-      fetchUserInfo(token)
-        .then((userInfo) => storeUser(userInfo))
-        .then(() => onLogin())
-        .catch((err) => {
-          setError('登入失敗，請稍後再試');
-          setLoading(false);
-        });
+    console.log('[Login] response:', JSON.stringify(response, null, 2));
+    if (response?.type === 'success') {
+      // Token 可能在不同位置
+      const token = response.authentication?.accessToken
+        ?? (response as any).params?.access_token;
+      console.log('[Login] token found:', token ? 'YES (' + token.substring(0, 15) + '...)' : 'NO');
+
+      if (token) {
+        setLoading(true);
+        setError(null);
+        storeAccessToken(token);
+        geminiService.setAccessToken(token);
+        fetchUserInfo(token)
+          .then((userInfo) => storeUser(userInfo))
+          .then(() => onLogin())
+          .catch((err) => {
+            console.error('[Login] fetchUserInfo error:', err);
+            // 即使 userInfo 失敗也讓他進去
+            onLogin();
+          });
+      } else {
+        setError('登入成功但無法取得 token');
+      }
     } else if (response?.type === 'error') {
+      console.error('[Login] error response:', response);
       setError('登入取消或失敗');
     }
   }, [response]);
