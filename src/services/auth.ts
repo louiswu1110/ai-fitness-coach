@@ -42,6 +42,7 @@ export function useGoogleAuth() {
       scopes: ['openid', 'profile', 'email'],
       redirectUri,
       responseType: AuthSession.ResponseType.Token,
+      usePKCE: false,
     },
     discovery
   );
