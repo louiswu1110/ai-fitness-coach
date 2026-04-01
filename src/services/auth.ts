@@ -86,6 +86,7 @@ export function useGoogleAuth() {
       redirectUri,
       responseType: AuthSession.ResponseType.Token,
       usePKCE: false,
+      prompt: AuthSession.Prompt.Consent,
     },
     discovery
   );
