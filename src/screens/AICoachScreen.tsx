@@ -120,7 +120,13 @@ export default function AICoachScreen() {
   async function handleAnalysis(card: AnalysisCard) {
     const ready = await geminiService.ensureInitialized();
     if (!ready) {
-      Alert.alert('尚未設定 API Key', '請先到設定頁綁定 Gemini API Key。');
+      const errMsg: ChatMessage = {
+        id: `ai-err-${Date.now()}`,
+        role: 'ai',
+        content: '⚠️ 請先用 Google 帳號登入以使用 AI 功能。',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [errMsg, ...prev]);
       return;
     }
 
@@ -206,7 +212,13 @@ export default function AICoachScreen() {
 
     const ready = await geminiService.ensureInitialized();
     if (!ready) {
-      Alert.alert('尚未設定 API Key', '請先到設定頁綁定 Gemini API Key。');
+      const errMsg: ChatMessage = {
+        id: `ai-err-${Date.now()}`,
+        role: 'ai',
+        content: '⚠️ 請先用 Google 帳號登入以使用 AI 功能。',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [errMsg, ...prev]);
       return;
     }
 
