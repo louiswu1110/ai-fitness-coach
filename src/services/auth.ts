@@ -82,15 +82,38 @@ export function useGoogleAuth() {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/generative-language', 'https://www.googleapis.com/auth/cloud-platform'],
+      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/generative-language'],
       redirectUri,
-      responseType: AuthSession.ResponseType.Token,
-      usePKCE: false,
+      responseType: AuthSession.ResponseType.Code,
+      usePKCE: true,
     },
     discovery
   );
 
   return { request, response, promptAsync };
+}
+
+// -- Exchange code for token (code flow) --
+export async function exchangeCodeForToken(
+  code: string,
+  codeVerifier: string,
+  redirectUri: string,
+): Promise<string> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      code,
+      code_verifier: codeVerifier,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }).toString(),
+  });
+  const data = await res.json();
+  console.log('[Auth] token exchange response:', JSON.stringify(data).substring(0, 200));
+  if (data.error) throw new Error(data.error_description || data.error);
+  return data.access_token;
 }
 
 export async function fetchUserInfo(accessToken: string): Promise<UserInfo> {

@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useGoogleAuth, fetchUserInfo, storeUser, storeAccessToken } from '../services/auth';
+import { useGoogleAuth, fetchUserInfo, storeUser, storeAccessToken, exchangeCodeForToken } from '../services/auth';
 import { geminiService } from '../services/gemini';
+import * as AuthSession from 'expo-auth-session';
 import { Colors, BorderRadius, FontSize, Spacing } from '../utils/theme';
 
 interface Props {
@@ -19,27 +20,45 @@ export default function LoginScreen({ onLogin, onSkip }: Props) {
   useEffect(() => {
     console.log('[Login] response:', JSON.stringify(response, null, 2));
     if (response?.type === 'success') {
-      // Token 可能在不同位置
-      const token = response.authentication?.accessToken
-        ?? (response as any).params?.access_token;
-      console.log('[Login] token found:', token ? 'YES (' + token.substring(0, 15) + '...)' : 'NO');
+      setLoading(true);
+      setError(null);
 
-      if (token) {
-        setLoading(true);
-        setError(null);
-        storeAccessToken(token);
-        geminiService.setAccessToken(token);
-        fetchUserInfo(token)
-          .then((userInfo) => storeUser(userInfo))
-          .then(() => onLogin())
-          .catch((err) => {
-            console.error('[Login] fetchUserInfo error:', err);
-            // 即使 userInfo 失敗也讓他進去
+      (async () => {
+        try {
+          let accessToken: string | undefined;
+
+          // Code flow: exchange code for token
+          const code = (response as any).params?.code;
+          if (code && request?.codeVerifier) {
+            const redirectUri = AuthSession.makeRedirectUri();
+            console.log('[Login] exchanging code for token...');
+            accessToken = await exchangeCodeForToken(code, request.codeVerifier, redirectUri);
+          }
+
+          // Fallback: implicit flow token
+          if (!accessToken) {
+            accessToken = response.authentication?.accessToken
+              ?? (response as any).params?.access_token;
+          }
+
+          console.log('[Login] accessToken:', accessToken ? 'YES' : 'NO');
+
+          if (accessToken) {
+            storeAccessToken(accessToken);
+            geminiService.setAccessToken(accessToken);
+            const userInfo = await fetchUserInfo(accessToken);
+            await storeUser(userInfo);
             onLogin();
-          });
-      } else {
-        setError('登入成功但無法取得 token');
-      }
+          } else {
+            setError('登入成功但無法取得 token');
+            setLoading(false);
+          }
+        } catch (err: any) {
+          console.error('[Login] error:', err);
+          setError(err.message || '登入失敗');
+          setLoading(false);
+        }
+      })();
     } else if (response?.type === 'error') {
       console.error('[Login] error response:', response);
       setError('登入取消或失敗');

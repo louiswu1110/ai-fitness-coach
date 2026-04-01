@@ -10,7 +10,6 @@ class GeminiService {
     if (!this.accessToken) {
       this.accessToken = getAccessTokenSync();
     }
-    console.log('[Gemini] ensureInitialized, token:', this.accessToken ? 'YES' : 'NO');
     return this.accessToken != null && this.accessToken.length > 0;
   }
 
@@ -21,7 +20,6 @@ class GeminiService {
 
   setAccessToken(token: string) {
     this.accessToken = token;
-    console.log('[Gemini] token set, length:', token.length);
   }
 
   async analyzeFood(imageBase64: string): Promise<Record<string, any>> {
@@ -47,10 +45,10 @@ class GeminiService {
   private async _send(prompt: string): Promise<Record<string, any>> {
     try {
       await this.ensureInitialized();
-      console.log('[Gemini] token:', this.accessToken ? 'YES (' + this.accessToken.substring(0, 15) + '...)' : 'NO');
       if (!this.accessToken) throw new Error('請先登入 Google 帳號');
 
-      const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
+      const url = `${GEMINI_API_BASE}/${MODEL}:generateContent`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -61,13 +59,10 @@ class GeminiService {
         }),
       });
 
-      console.log('[Gemini] response status:', res.status);
       const rawBody = await res.text();
-      console.log('[Gemini] response body:', rawBody.substring(0, 300));
+      console.log('[Gemini] status:', res.status);
 
-      if (!res.ok) {
-        throw new Error(`API 錯誤 ${res.status}: ${rawBody}`);
-      }
+      if (!res.ok) throw new Error(`API 錯誤 ${res.status}: ${rawBody.substring(0, 200)}`);
 
       const data = JSON.parse(rawBody);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -84,7 +79,8 @@ class GeminiService {
       await this.ensureInitialized();
       if (!this.accessToken) throw new Error('請先登入 Google 帳號');
 
-      const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
+      const url = `${GEMINI_API_BASE}/${MODEL}:generateContent`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -100,12 +96,10 @@ class GeminiService {
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`API 錯誤 ${res.status}: ${err}`);
-      }
+      const rawBody = await res.text();
+      if (!res.ok) throw new Error(`API 錯誤 ${res.status}: ${rawBody.substring(0, 200)}`);
 
-      const data = await res.json();
+      const data = JSON.parse(rawBody);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return { error: 'AI 沒有回傳任何內容' };
       return parseResponse(text);
