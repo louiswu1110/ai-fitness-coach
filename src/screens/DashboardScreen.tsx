@@ -6,26 +6,20 @@ import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../utils/useColorScheme';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
 import { getStoredUser, UserInfo } from '../services/auth';
-import SettingsScreen from './SettingsScreen';
 
-export default function DashboardScreen({ onLogout }: { onLogout?: () => void }) {
+interface Props {
+  onLogout?: () => void;
+  onOpenDrawer?: () => void;
+}
+
+export default function DashboardScreen({ onLogout, onOpenDrawer }: Props) {
   const navigation = useNavigation<any>();
   const colors = useThemeColors();
-  const [showSettings, setShowSettings] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
     getStoredUser().then(setUser);
-  }, [showSettings]);
-
-  if (showSettings) {
-    return (
-      <SettingsScreen
-        onClose={() => setShowSettings(false)}
-        onLogout={() => { setShowSettings(false); onLogout?.(); }}
-      />
-    );
-  }
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -50,10 +44,10 @@ export default function DashboardScreen({ onLogout }: { onLogout?: () => void })
             </View>
           </View>
           <Pressable
-            style={[styles.settingsBtn, { backgroundColor: colors.primary + '20' }]}
-            onPress={() => setShowSettings(true)}
+            style={[styles.menuBtn, { backgroundColor: colors.primary + '20' }]}
+            onPress={onOpenDrawer}
           >
-            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+            <Ionicons name="menu" size={22} color={colors.primary} />
           </Pressable>
         </View>
 
@@ -122,7 +116,7 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   greeting: { fontSize: FontSize.md },
   title: { fontSize: FontSize.xxl, fontWeight: '800' },
-  settingsBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', cursor: 'pointer' as any },
+  menuBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', cursor: 'pointer' as any },
   heroCard: { borderRadius: BorderRadius.lg, padding: Spacing.xl, marginBottom: Spacing.lg, alignItems: 'center' },
   heroLabel: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.md },
   heroScore: { color: '#fff', fontSize: 56, fontWeight: '800', marginVertical: Spacing.sm },

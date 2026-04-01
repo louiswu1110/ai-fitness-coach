@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { useColorScheme, View, ActivityIndicator, StyleSheet, Pressable } from 'react-native';
+import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,12 +12,15 @@ import BodyScreen from './src/screens/BodyScreen';
 import DietScreen from './src/screens/DietScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import AICoachScreen from './src/screens/AICoachScreen';
-import { getStoredUser, getAccessTokenSync, logout as authLogout } from './src/services/auth';
+import SettingsScreen from './src/screens/SettingsScreen';
+import DrawerMenu from './src/components/DrawerMenu';
+import { getStoredUser, getAccessTokenSync, logout as authLogout, UserInfo } from './src/services/auth';
 import { initDatabase } from './src/services/database';
 import { geminiService } from './src/services/gemini';
 import { Colors } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
+const navigationRef = createNavigationContainerRef();
 
 const LightNavTheme = {
   ...DefaultTheme,
@@ -49,25 +52,44 @@ export default function App() {
   const colors = isDark ? Colors.dark : Colors.light;
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [user, setUser] = useState<UserInfo | null>(null);
 
   const handleLogout = () => {
-    authLogout(); // clears storage and reloads page on web
+    setDrawerOpen(false);
+    setShowSettings(false);
+    authLogout();
+  };
+
+  const handleOpenDrawer = () => setDrawerOpen(true);
+
+  const loadUser = async () => {
+    const u = await getStoredUser();
+    setUser(u);
   };
 
   useEffect(() => {
     async function init() {
       try {
         await initDatabase();
-        const user = await getStoredUser();
+        const storedUser = await getStoredUser();
         const token = getAccessTokenSync();
         if (token) geminiService.setAccessToken(token);
-        setIsLoggedIn(user !== null);
+        setUser(storedUser);
+        setIsLoggedIn(storedUser !== null);
       } catch {
         setIsLoggedIn(false);
       }
     }
     init();
   }, []);
+
+  const navigateToTab = (tab: string) => {
+    if (navigationRef.isReady()) {
+      (navigationRef as any).navigate(tab);
+    }
+  };
 
   // Loading state
   if (isLoggedIn === null) {
@@ -86,7 +108,10 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <LoginScreen
-          onLogin={() => setIsLoggedIn(true)}
+          onLogin={() => {
+            loadUser();
+            setIsLoggedIn(true);
+          }}
           onSkip={() => setIsLoggedIn(true)}
         />
       </SafeAreaProvider>
@@ -96,7 +121,7 @@ export default function App() {
   // Main app
   return (
     <SafeAreaProvider>
-      <NavigationContainer theme={isDark ? DarkNavTheme : LightNavTheme}>
+      <NavigationContainer ref={navigationRef} theme={isDark ? DarkNavTheme : LightNavTheme}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <Tab.Navigator
           screenOptions={({ route }) => ({
@@ -125,10 +150,16 @@ export default function App() {
             headerStyle: { backgroundColor: colors.background, elevation: 0, shadowOpacity: 0 },
             headerTintColor: colors.text,
             headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+            headerRight: () =>
+              route.name !== '總覽' ? (
+                <Pressable onPress={handleOpenDrawer} style={{ marginRight: 16 }}>
+                  <Ionicons name="menu" size={24} color={colors.text} />
+                </Pressable>
+              ) : null,
           })}
         >
           <Tab.Screen name="總覽" options={{ headerShown: false }}>
-            {() => <DashboardScreen onLogout={handleLogout} />}
+            {() => <DashboardScreen onLogout={handleLogout} onOpenDrawer={handleOpenDrawer} />}
           </Tab.Screen>
           <Tab.Screen name="身體" component={BodyScreen} />
           <Tab.Screen name="飲食" component={DietScreen} />
@@ -136,6 +167,31 @@ export default function App() {
           <Tab.Screen name="教練" component={AICoachScreen} />
         </Tab.Navigator>
       </NavigationContainer>
+
+      {/* Drawer overlay - rendered above NavigationContainer */}
+      <DrawerMenu
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onNavigate={navigateToTab}
+        onSettings={() => setShowSettings(true)}
+        onLogout={handleLogout}
+        userName={user?.name}
+        userEmail={user?.email}
+        userPicture={user?.picture}
+      />
+
+      {/* Settings overlay */}
+      {showSettings && (
+        <View style={StyleSheet.absoluteFill}>
+          <SettingsScreen
+            onClose={() => {
+              setShowSettings(false);
+              loadUser(); // Refresh user info after settings change
+            }}
+            onLogout={handleLogout}
+          />
+        </View>
+      )}
     </SafeAreaProvider>
   );
 }
