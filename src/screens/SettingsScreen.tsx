@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../utils/useColorScheme';
 import { geminiService } from '../services/gemini';
 import { logout as authLogout } from '../services/auth';
+import { useOpenAIAuth, exchangeOpenAICode, getOpenAIToken, clearOpenAIToken } from '../services/openai-oauth';
+import * as AuthSession from 'expo-auth-session';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
 
 interface Props {
@@ -338,7 +340,55 @@ export default function SettingsScreen({ onClose, onLogout }: Props) {
           </View>
         </View>
 
-        {/* API Key Section */}
+        {/* AI Provider Selection */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>AI 供應商</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, geminiService.currentProvider === 'chatgpt' && { backgroundColor: colors.primary }]}
+              onPress={() => { geminiService.setProvider('chatgpt'); setApiKeyStatus('idle'); }}
+            >
+              <Text style={[styles.chipText, geminiService.currentProvider === 'chatgpt' && { color: '#fff' }]}>
+                ChatGPT (OAuth)
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, geminiService.currentProvider === 'gemini' && { backgroundColor: colors.primary }]}
+              onPress={() => { geminiService.setProvider('gemini'); setApiKeyStatus('idle'); }}
+            >
+              <Text style={[styles.chipText, geminiService.currentProvider === 'gemini' && { color: '#fff' }]}>
+                Gemini (API Key)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {geminiService.currentProvider === 'chatgpt' ? (
+            <View style={styles.field}>
+              <Text style={[styles.sectionHint, { color: colors.textHint, marginBottom: 12 }]}>
+                用你的 ChatGPT Plus/Pro 訂閱，不需要 API Key
+              </Text>
+              {getOpenAIToken() ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                  <Text style={{ color: colors.success, fontWeight: '600' }}>已連接 ChatGPT</Text>
+                  <TouchableOpacity onPress={() => { clearOpenAIToken(); setApiKeyStatus('idle'); }}>
+                    <Text style={{ color: colors.error, fontSize: 13 }}>斷開</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.validateButton, { backgroundColor: '#10a37f', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }]}
+                  onPress={() => { /* Will be handled by ChatGPT OAuth hook in parent */ }}
+                >
+                  <Text style={[styles.validateButtonText, { fontSize: 15 }]}>登入 ChatGPT</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+        </View>
+
+        {/* Gemini API Key Section (only when Gemini selected) */}
+        {geminiService.currentProvider === 'gemini' && (
         <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Gemini API Key</Text>
           <Text style={[styles.sectionHint, { color: colors.textHint }]}>
@@ -392,6 +442,7 @@ export default function SettingsScreen({ onClose, onLogout }: Props) {
             </View>
           </View>
         </View>
+        )}
 
         {/* Logout */}
         {onLogout && (

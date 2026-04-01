@@ -1,11 +1,11 @@
 import { Platform } from 'react-native';
+import { getOpenAIToken, refreshOpenAIToken } from './openai-oauth';
 
 // ============================================================
-// Multi-provider AI Service: Gemini / OpenAI GPT
-// 用戶可在設定頁選擇要用哪個 AI 供應商
+// Multi-provider AI Service: Gemini (API Key) / ChatGPT (OAuth)
 // ============================================================
 
-type AIProvider = 'gemini' | 'openai';
+type AIProvider = 'gemini' | 'chatgpt';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const OPENAI_BASE = 'https://api.openai.com/v1/chat/completions';
@@ -43,7 +43,8 @@ class GeminiService {
 
   get isConfigured(): boolean {
     if (this.provider === 'gemini') return (this.geminiKey ?? getStored('gemini_api_key')) != null;
-    return (this.openaiKey ?? getStored('openai_api_key')) != null;
+    // ChatGPT: check OAuth token
+    return getOpenAIToken() != null;
   }
 
   async ensureInitialized(): Promise<boolean> {
@@ -116,11 +117,20 @@ class GeminiService {
   // -- Internal --
   private async _send(prompt: string): Promise<Record<string, any>> {
     await this.ensureInitialized();
-    const key = this.getApiKey();
-    if (!key) return { error: `請先到設定頁設定 ${this.provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key` };
     try {
-      if (this.provider === 'gemini') return this._sendGemini(prompt, key);
-      return this._sendOpenAI(prompt, key);
+      if (this.provider === 'gemini') {
+        const key = this.getApiKey();
+        if (!key) return { error: '請先到設定頁設定 Gemini API Key' };
+        return this._sendGemini(prompt, key);
+      }
+      // ChatGPT OAuth
+      let token = getOpenAIToken();
+      if (!token) {
+        // Try refresh
+        token = await refreshOpenAIToken();
+        if (!token) return { error: '請先用 ChatGPT 帳號登入（設定 → AI 供應商 → 登入 ChatGPT）' };
+      }
+      return this._sendOpenAI(prompt, token);
     } catch (e: any) {
       return { error: `AI 請求失敗：${e.message}` };
     }
@@ -128,11 +138,18 @@ class GeminiService {
 
   private async _sendWithImage(prompt: string, imageBase64: string): Promise<Record<string, any>> {
     await this.ensureInitialized();
-    const key = this.getApiKey();
-    if (!key) return { error: `請先到設定頁設定 ${this.provider === 'gemini' ? 'Gemini' : 'OpenAI'} API Key` };
     try {
-      if (this.provider === 'gemini') return this._sendGeminiImage(prompt, imageBase64, key);
-      return this._sendOpenAIImage(prompt, imageBase64, key);
+      if (this.provider === 'gemini') {
+        const key = this.getApiKey();
+        if (!key) return { error: '請先到設定頁設定 Gemini API Key' };
+        return this._sendGeminiImage(prompt, imageBase64, key);
+      }
+      let token = getOpenAIToken();
+      if (!token) {
+        token = await refreshOpenAIToken();
+        if (!token) return { error: '請先用 ChatGPT 帳號登入' };
+      }
+      return this._sendOpenAIImage(prompt, imageBase64, token);
     } catch (e: any) {
       return { error: `AI 請求失敗：${e.message}` };
     }
