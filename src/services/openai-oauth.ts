@@ -4,17 +4,13 @@ import { Platform } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// OpenAI OAuth endpoints (ChatGPT Codex OAuth)
-const OPENAI_AUTH_ENDPOINT = 'https://auth.openai.com/authorize';
-const OPENAI_TOKEN_ENDPOINT = 'https://auth.openai.com/token';
-
-// OpenAI OAuth Client ID for public apps
-// 用戶的 ChatGPT Plus/Pro 訂閱即可使用
-const OPENAI_CLIENT_ID = 'app-afKPhBo3IbGFb2GxLBm5dFGH'; // OpenClaw's public client ID
+// OpenAI Codex OAuth — 公開 Client ID，任何人都能用
+// 用戶用 ChatGPT Plus/Pro 訂閱即可
+const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
 const discovery = {
-  authorizationEndpoint: OPENAI_AUTH_ENDPOINT,
-  tokenEndpoint: OPENAI_TOKEN_ENDPOINT,
+  authorizationEndpoint: 'https://auth.openai.com/oauth/authorize',
+  tokenEndpoint: 'https://auth.openai.com/oauth/token',
 };
 
 function getStored(key: string): string | null {
@@ -51,7 +47,7 @@ export function useOpenAIAuth() {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: OPENAI_CLIENT_ID,
-      scopes: ['openai.public'],
+      scopes: ['openid', 'profile', 'email', 'offline_access', 'model.request'],
       redirectUri,
       responseType: AuthSession.ResponseType.Code,
       usePKCE: true,
@@ -67,7 +63,7 @@ export async function exchangeOpenAICode(
   codeVerifier: string,
   redirectUri: string,
 ): Promise<{ accessToken: string; refreshToken?: string }> {
-  const res = await fetch(OPENAI_TOKEN_ENDPOINT, {
+  const res = await fetch('https://auth.openai.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -80,11 +76,10 @@ export async function exchangeOpenAICode(
   });
 
   const data = await res.json();
-  console.log('[OpenAI OAuth] token response:', JSON.stringify(data).substring(0, 200));
+  console.log('[OpenAI OAuth] token response:', JSON.stringify(data).substring(0, 300));
 
   if (data.error) throw new Error(data.error_description || data.error);
 
-  // Store tokens
   storeOpenAIToken(data.access_token);
   if (data.refresh_token) {
     setStored('openai_refresh_token', data.refresh_token);
@@ -101,7 +96,7 @@ export async function refreshOpenAIToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   try {
-    const res = await fetch(OPENAI_TOKEN_ENDPOINT, {
+    const res = await fetch('https://auth.openai.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
