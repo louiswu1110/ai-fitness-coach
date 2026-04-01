@@ -12,8 +12,9 @@ import BodyScreen from './src/screens/BodyScreen';
 import DietScreen from './src/screens/DietScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import AICoachScreen from './src/screens/AICoachScreen';
-import { getStoredUser } from './src/services/auth';
+import { getStoredUser, getAccessToken } from './src/services/auth';
 import { initDatabase } from './src/services/database';
+import { geminiService } from './src/services/gemini';
 import { Colors } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
@@ -54,6 +55,8 @@ export default function App() {
       try {
         await initDatabase();
         const user = await getStoredUser();
+        const token = await getAccessToken();
+        if (token) geminiService.setAccessToken(token);
         setIsLoggedIn(user !== null);
       } catch {
         setIsLoggedIn(false);

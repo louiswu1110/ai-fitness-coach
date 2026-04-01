@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useGoogleAuth, fetchUserInfo, storeUser } from '../services/auth';
+import { useGoogleAuth, fetchUserInfo, storeUser, storeAccessToken } from '../services/auth';
+import { geminiService } from '../services/gemini';
 import { Colors, BorderRadius, FontSize, Spacing } from '../utils/theme';
 
 interface Props {
@@ -19,7 +20,10 @@ export default function LoginScreen({ onLogin, onSkip }: Props) {
     if (response?.type === 'success' && response.authentication?.accessToken) {
       setLoading(true);
       setError(null);
-      fetchUserInfo(response.authentication.accessToken)
+      const token = response.authentication.accessToken;
+      storeAccessToken(token);
+      geminiService.setAccessToken(token);
+      fetchUserInfo(token)
         .then((userInfo) => storeUser(userInfo))
         .then(() => onLogin())
         .catch((err) => {

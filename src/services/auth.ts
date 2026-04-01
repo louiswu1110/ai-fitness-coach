@@ -29,17 +29,26 @@ export async function storeUser(user: UserInfo): Promise<void> {
   await AsyncStorage.setItem('user_info', JSON.stringify(user));
 }
 
+export async function storeAccessToken(token: string): Promise<void> {
+  await AsyncStorage.setItem('google_access_token', token);
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  return AsyncStorage.getItem('google_access_token');
+}
+
 export async function clearUser(): Promise<void> {
   await AsyncStorage.removeItem('user_info');
 }
 
 export function useGoogleAuth() {
   const redirectUri = AuthSession.makeRedirectUri();
+  console.log('=== REDIRECT URI ===', redirectUri);
   
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email'],
+      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/generative-language', 'https://www.googleapis.com/auth/cloud-platform'],
       redirectUri,
       responseType: AuthSession.ResponseType.Token,
       usePKCE: false,

@@ -1,51 +1,24 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import * as SecureStore from 'expo-secure-store';
+import { getAccessToken } from './auth';
 
-const API_KEY_STORAGE = 'gemini_api_key';
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const MODEL = 'gemini-2.0-flash';
 
 class GeminiService {
-  private genAI: GoogleGenerativeAI | null = null;
-  private apiKey: string | null = null;
+  private accessToken: string | null = null;
 
-  async setApiKey(key: string): Promise<void> {
-    await SecureStore.setItemAsync(API_KEY_STORAGE, key);
-    this.apiKey = key;
-    this.genAI = new GoogleGenerativeAI(key);
-  }
-
-  async getApiKey(): Promise<string | null> {
-    if (this.apiKey) return this.apiKey;
-    this.apiKey = await SecureStore.getItemAsync(API_KEY_STORAGE);
-    if (this.apiKey) this.genAI = new GoogleGenerativeAI(this.apiKey);
-    return this.apiKey;
-  }
-
-  async clearApiKey(): Promise<void> {
-    await SecureStore.deleteItemAsync(API_KEY_STORAGE);
-    this.apiKey = null;
-    this.genAI = null;
+  async ensureInitialized(): Promise<boolean> {
+    if (!this.accessToken) {
+      this.accessToken = await getAccessToken();
+    }
+    return this.accessToken != null;
   }
 
   get isConfigured(): boolean {
-    return this.apiKey != null && this.apiKey.length > 0;
+    return this.accessToken != null;
   }
 
-  async ensureInitialized(): Promise<boolean> {
-    if (!this.apiKey) await this.getApiKey();
-    return this.isConfigured;
-  }
-
-  async validateApiKey(): Promise<boolean> {
-    try {
-      const key = this.apiKey ?? await this.getApiKey();
-      if (!key) return false;
-      const ai = new GoogleGenerativeAI(key);
-      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent('回覆 OK');
-      return result.response.text().length > 0;
-    } catch {
-      return false;
-    }
+  setAccessToken(token: string) {
+    this.accessToken = token;
   }
 
   async analyzeFood(imageBase64: string): Promise<Record<string, any>> {
@@ -70,10 +43,29 @@ class GeminiService {
 
   private async _send(prompt: string): Promise<Record<string, any>> {
     try {
-      if (!this.genAI) throw new Error('未設定 API Key');
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
-      return parseResponse(result.response.text());
+      await this.ensureInitialized();
+      if (!this.accessToken) throw new Error('請先登入 Google 帳號');
+
+      const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`API 錯誤 ${res.status}: ${err}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return { error: 'AI 沒有回傳任何內容' };
+      return parseResponse(text);
     } catch (e: any) {
       return { error: `AI 請求失敗：${e.message}` };
     }
@@ -81,13 +73,34 @@ class GeminiService {
 
   private async _sendWithImage(prompt: string, imageBase64: string): Promise<Record<string, any>> {
     try {
-      if (!this.genAI) throw new Error('未設定 API Key');
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-      ]);
-      return parseResponse(result.response.text());
+      await this.ensureInitialized();
+      if (!this.accessToken) throw new Error('請先登入 Google 帳號');
+
+      const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+            ],
+          }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`API 錯誤 ${res.status}: ${err}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return { error: 'AI 沒有回傳任何內容' };
+      return parseResponse(text);
     } catch (e: any) {
       return { error: `AI 請求失敗：${e.message}` };
     }
