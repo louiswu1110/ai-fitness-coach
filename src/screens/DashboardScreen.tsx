@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -80,10 +80,12 @@ export default function DashboardScreen({ onLogout }: { onLogout?: () => void })
         </View>
       </ScrollView>
 
-      {/* Settings Modal */}
-      <Modal visible={showSettings} animationType="slide" presentationStyle="pageSheet">
-        <SettingsScreen onClose={() => setShowSettings(false)} onLogout={() => { setShowSettings(false); onLogout?.(); }} />
-      </Modal>
+      {/* Settings overlay */}
+      {showSettings && (
+        <View style={StyleSheet.absoluteFill}>
+          <SettingsScreen onClose={() => setShowSettings(false)} onLogout={() => { setShowSettings(false); onLogout?.(); }} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
