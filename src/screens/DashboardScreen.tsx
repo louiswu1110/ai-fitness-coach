@@ -7,7 +7,7 @@ import { useThemeColors } from '../utils/useColorScheme';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
 import SettingsScreen from './SettingsScreen';
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ onLogout }: { onLogout?: () => void }) {
   const navigation = useNavigation<any>();
   const colors = useThemeColors();
   const [showSettings, setShowSettings] = useState(false);
@@ -82,7 +82,7 @@ export default function DashboardScreen() {
 
       {/* Settings Modal */}
       <Modal visible={showSettings} animationType="slide" presentationStyle="pageSheet">
-        <SettingsScreen onClose={() => setShowSettings(false)} />
+        <SettingsScreen onClose={() => setShowSettings(false)} onLogout={() => { setShowSettings(false); onLogout?.(); }} />
       </Modal>
     </SafeAreaView>
   );

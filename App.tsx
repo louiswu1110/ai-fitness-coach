@@ -12,9 +12,10 @@ import BodyScreen from './src/screens/BodyScreen';
 import DietScreen from './src/screens/DietScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import AICoachScreen from './src/screens/AICoachScreen';
-import { getStoredUser, getAccessToken } from './src/services/auth';
+import { getStoredUser, getAccessToken, clearUser } from './src/services/auth';
 import { initDatabase } from './src/services/database';
 import { geminiService } from './src/services/gemini';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
@@ -49,6 +50,13 @@ export default function App() {
   const colors = isDark ? Colors.dark : Colors.light;
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  const handleLogout = async () => {
+    await clearUser();
+    await AsyncStorage.removeItem('google_access_token');
+    geminiService.setAccessToken('');
+    setIsLoggedIn(false);
+  };
 
   useEffect(() => {
     async function init() {
@@ -123,7 +131,9 @@ export default function App() {
             headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           })}
         >
-          <Tab.Screen name="總覽" component={DashboardScreen} options={{ headerShown: false }} />
+          <Tab.Screen name="總覽" options={{ headerShown: false }}>
+            {() => <DashboardScreen onLogout={handleLogout} />}
+          </Tab.Screen>
           <Tab.Screen name="身體" component={BodyScreen} />
           <Tab.Screen name="飲食" component={DietScreen} />
           <Tab.Screen name="訓練" component={TrainingScreen} />
