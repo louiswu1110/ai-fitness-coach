@@ -1,21 +1,30 @@
-import { getAccessTokenSync } from './auth';
+import { Platform } from 'react-native';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODEL = 'gemini-2.0-flash';
 
+function getStoredToken(): string | null {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.localStorage.getItem('google_access_token');
+  }
+  return null;
+}
+
 class GeminiService {
   private accessToken: string | null = null;
 
-  async ensureInitialized(): Promise<boolean> {
-    if (!this.accessToken) {
-      this.accessToken = getAccessTokenSync();
-    }
-    return this.accessToken != null && this.accessToken.length > 0;
+  constructor() {
+    this.accessToken = getStoredToken();
   }
 
   get isConfigured(): boolean {
-    if (!this.accessToken) this.accessToken = getAccessTokenSync();
+    if (!this.accessToken) this.accessToken = getStoredToken();
     return this.accessToken != null && this.accessToken.length > 0;
+  }
+
+  async ensureInitialized(): Promise<boolean> {
+    if (!this.accessToken) this.accessToken = getStoredToken();
+    return this.isConfigured;
   }
 
   setAccessToken(token: string) {
@@ -43,10 +52,9 @@ class GeminiService {
   }
 
   private async _send(prompt: string): Promise<Record<string, any>> {
+    if (!this.accessToken) this.accessToken = getStoredToken();
+    if (!this.accessToken) return { error: '請先登入 Google 帳號以使用 AI 功能' };
     try {
-      await this.ensureInitialized();
-      if (!this.accessToken) throw new Error('請先登入 Google 帳號');
-
       const url = `${GEMINI_API_BASE}/${MODEL}:generateContent`;
       const res = await fetch(url, {
         method: 'POST',
@@ -54,31 +62,23 @@ class GeminiService {
           'Authorization': `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       });
-
       const rawBody = await res.text();
-      console.log('[Gemini] status:', res.status);
-
-      if (!res.ok) throw new Error(`API 錯誤 ${res.status}: ${rawBody.substring(0, 200)}`);
-
+      if (!res.ok) throw new Error(`${res.status}: ${rawBody.substring(0, 200)}`);
       const data = JSON.parse(rawBody);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return { error: 'AI 沒有回傳任何內容' };
       return parseResponse(text);
     } catch (e: any) {
-      console.error('[Gemini] error:', e);
       return { error: `AI 請求失敗：${e.message}` };
     }
   }
 
   private async _sendWithImage(prompt: string, imageBase64: string): Promise<Record<string, any>> {
+    if (!this.accessToken) this.accessToken = getStoredToken();
+    if (!this.accessToken) return { error: '請先登入 Google 帳號以使用 AI 功能' };
     try {
-      await this.ensureInitialized();
-      if (!this.accessToken) throw new Error('請先登入 Google 帳號');
-
       const url = `${GEMINI_API_BASE}/${MODEL}:generateContent`;
       const res = await fetch(url, {
         method: 'POST',
@@ -87,18 +87,11 @@ class GeminiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-            ],
-          }],
+          contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }] }],
         }),
       });
-
       const rawBody = await res.text();
-      if (!res.ok) throw new Error(`API 錯誤 ${res.status}: ${rawBody.substring(0, 200)}`);
-
+      if (!res.ok) throw new Error(`${res.status}: ${rawBody.substring(0, 200)}`);
       const data = JSON.parse(rawBody);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return { error: 'AI 沒有回傳任何內容' };
@@ -115,43 +108,18 @@ function parseResponse(raw: string): Record<string, any> {
   else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
   if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
   cleaned = cleaned.trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    return { error: '無法解析 AI 回應', rawResponse: raw };
-  }
+  try { return JSON.parse(cleaned); }
+  catch { return { error: '無法解析 AI 回應', rawResponse: raw }; }
 }
 
-const SYSTEM = `你是一位專業的健身教練和營養師，專精於台灣客戶的健康管理。
-你必須只用繁體中文回覆。你必須只回傳有效的 JSON 格式，不要加任何 markdown 標記。`;
+const SYSTEM = `你是一位專業的健身教練和營養師，專精於台灣客戶的健康管理。你必須只用繁體中文回覆。你必須只回傳有效的 JSON 格式，不要加任何 markdown 標記。`;
 
 const PROMPTS = {
-  foodRecognition: `${SYSTEM}
-請分析這張食物照片，辨識所有可見的食物項目。
-特別注意台灣常見食物（便當、小吃、手搖飲、夜市食物等）。
-回傳 JSON：
-{"foods":[{"name":"食物名","portion":"份量","calories":數字,"protein":數字,"carbs":數字,"fat":數字,"confidence":0到1}],"totalCalories":數字,"notes":"建議"}`,
-
-  trainingAnalysis: (data: any) => `${SYSTEM}
-使用者過去 7 天訓練記錄：${JSON.stringify(data, null, 2)}
-分析並回傳 JSON：
-{"summary":"總結","volumeAssessment":"訓練量評估","suggestions":["建議1","建議2"],"riskLevel":"low/medium/high"}`,
-
-  bodyCompositionAnalysis: (data: any) => `${SYSTEM}
-使用者身體組成歷史：${JSON.stringify(data, null, 2)}
-分析並回傳 JSON：
-{"summary":"總結","trend":"趨勢","isHealthyProgress":true或false,"suggestions":["建議1"],"score":0到100}`,
-
-  weeklyReport: (data: any) => `${SYSTEM}
-使用者本週數據：${JSON.stringify(data, null, 2)}
-產生週報 JSON：
-{"summary":"總結","dietScore":0到100,"trainingScore":0到100,"overallScore":0到100,"highlights":["亮點"],"nextWeekGoals":["目標"],"motivationalMessage":"鼓勵"}`,
-
-  coachQA: (question: string, context: any) => `${SYSTEM}
-使用者資料：${JSON.stringify(context, null, 2)}
-問題：${question}
-回傳 JSON：
-{"answer":"回答","relatedTips":["提示"],"actionItems":["行動"]}`,
+  foodRecognition: `${SYSTEM}\n請分析這張食物照片，辨識所有可見的食物項目。特別注意台灣常見食物。\n回傳 JSON：{"foods":[{"name":"食物名","portion":"份量","calories":數字,"protein":數字,"carbs":數字,"fat":數字,"confidence":0到1}],"totalCalories":數字,"notes":"建議"}`,
+  trainingAnalysis: (data: any) => `${SYSTEM}\n使用者過去 7 天訓練記錄：${JSON.stringify(data)}\n回傳 JSON：{"summary":"總結","volumeAssessment":"訓練量評估","suggestions":["建議1","建議2"],"riskLevel":"low/medium/high"}`,
+  bodyCompositionAnalysis: (data: any) => `${SYSTEM}\n使用者身體組成歷史：${JSON.stringify(data)}\n回傳 JSON：{"summary":"總結","trend":"趨勢","isHealthyProgress":true或false,"suggestions":["建議1"],"score":0到100}`,
+  weeklyReport: (data: any) => `${SYSTEM}\n使用者本週數據：${JSON.stringify(data)}\n回傳 JSON：{"summary":"總結","dietScore":0到100,"trainingScore":0到100,"overallScore":0到100,"highlights":["亮點"],"nextWeekGoals":["目標"],"motivationalMessage":"鼓勵"}`,
+  coachQA: (question: string, context: any) => `${SYSTEM}\n使用者資料：${JSON.stringify(context)}\n問題：${question}\n回傳 JSON：{"answer":"回答","relatedTips":["提示"],"actionItems":["行動"]}`,
 };
 
 export const geminiService = new GeminiService();

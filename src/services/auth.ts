@@ -82,10 +82,10 @@ export function useGoogleAuth() {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/generative-language'],
+      scopes: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/generative-language.peruserquota'],
       redirectUri,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: true,
+      responseType: AuthSession.ResponseType.Token,
+      usePKCE: false,
     },
     discovery
   );
