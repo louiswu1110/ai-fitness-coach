@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import BodyScreen from './src/screens/BodyScreen';
 import DietScreen from './src/screens/DietScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import AICoachScreen from './src/screens/AICoachScreen';
+import { getStoredUser } from './src/services/auth';
+import { initDatabase } from './src/services/database';
 import { Colors } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
@@ -44,6 +47,46 @@ export default function App() {
   const isDark = scheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        await initDatabase();
+        const user = await getStoredUser();
+        setIsLoggedIn(user !== null);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    }
+    init();
+  }, []);
+
+  // Loading state
+  if (isLoggedIn === null) {
+    return (
+      <SafeAreaProvider>
+        <View style={[loadingStyles.container, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Login screen
+  if (!isLoggedIn) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <LoginScreen
+          onLogin={() => setIsLoggedIn(true)}
+          onSkip={() => setIsLoggedIn(true)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
+  // Main app
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={isDark ? DarkNavTheme : LightNavTheme}>
@@ -87,3 +130,11 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

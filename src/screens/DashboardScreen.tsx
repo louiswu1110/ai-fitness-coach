@@ -1,11 +1,14 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../utils/useColorScheme';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
+import SettingsScreen from './SettingsScreen';
 
 export default function DashboardScreen() {
   const colors = useThemeColors();
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -16,8 +19,11 @@ export default function DashboardScreen() {
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>你好 👋</Text>
             <Text style={[styles.title, { color: colors.text }]}>AI 健身教練</Text>
           </View>
-          <TouchableOpacity style={[styles.avatarCircle, { backgroundColor: colors.primary + '20' }]}>
-            <Text style={[styles.avatarText, { color: colors.primary }]}>?</Text>
+          <TouchableOpacity
+            style={[styles.avatarCircle, { backgroundColor: colors.primary + '20' }]}
+            onPress={() => setShowSettings(true)}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -71,6 +77,11 @@ export default function DashboardScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Settings Modal */}
+      <Modal visible={showSettings} animationType="slide" presentationStyle="pageSheet">
+        <SettingsScreen onClose={() => setShowSettings(false)} />
+      </Modal>
     </SafeAreaView>
   );
 }

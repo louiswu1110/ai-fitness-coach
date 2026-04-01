@@ -4,7 +4,7 @@ let db: SQLite.SQLiteDatabase;
 
 export async function initDatabase(): Promise<void> {
   db = await SQLite.openDatabaseAsync('fitness.db');
-  
+
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS weight_records (
       id TEXT PRIMARY KEY,
@@ -16,7 +16,6 @@ export async function initDatabase(): Promise<void> {
       waistCircumference REAL,
       note TEXT
     );
-    
     CREATE TABLE IF NOT EXISTS meal_records (
       id TEXT PRIMARY KEY,
       date TEXT NOT NULL,
@@ -24,7 +23,6 @@ export async function initDatabase(): Promise<void> {
       foods TEXT NOT NULL,
       note TEXT
     );
-    
     CREATE TABLE IF NOT EXISTS exercise_records (
       id TEXT PRIMARY KEY,
       date TEXT NOT NULL,
@@ -33,7 +31,6 @@ export async function initDatabase(): Promise<void> {
       caloriesBurned REAL,
       note TEXT
     );
-    
     CREATE TABLE IF NOT EXISTS training_sessions (
       id TEXT PRIMARY KEY,
       date TEXT NOT NULL,
@@ -42,7 +39,6 @@ export async function initDatabase(): Promise<void> {
       durationMinutes INTEGER,
       note TEXT
     );
-    
     CREATE TABLE IF NOT EXISTS daily_recovery (
       id TEXT PRIMARY KEY,
       date TEXT NOT NULL,
@@ -56,11 +52,6 @@ export async function initDatabase(): Promise<void> {
   `);
 }
 
-export function getDb(): SQLite.SQLiteDatabase {
-  return db;
-}
-
-// Generic CRUD helpers
 export async function insertRecord(table: string, record: Record<string, any>): Promise<void> {
   const keys = Object.keys(record);
   const placeholders = keys.map(() => '?').join(', ');
