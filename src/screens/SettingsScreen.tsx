@@ -48,6 +48,20 @@ const ACTIVITY_OPTIONS = ['久坐', '輕度活動', '中度活動', '高度活�
 
 export default function SettingsScreen({ onClose, onLogout }: Props) {
   const colors = useThemeColors();
+  const { request: oaiRequest, response: oaiResponse, promptAsync: oaiPromptAsync } = useOpenAIAuth();
+
+  // Handle ChatGPT OAuth response
+  useEffect(() => {
+    if (oaiResponse?.type === 'success') {
+      const code = (oaiResponse as any).params?.code;
+      if (code && oaiRequest?.codeVerifier) {
+        const redirectUri = AuthSession.makeRedirectUri();
+        exchangeOpenAICode(code, oaiRequest.codeVerifier, redirectUri)
+          .then(() => { Alert.alert('成功', 'ChatGPT 已連接！'); setApiKeyStatus('idle'); })
+          .catch((e) => Alert.alert('失敗', e.message));
+      }
+    }
+  }, [oaiResponse]);
 
   const [profile, setProfile] = useState<Profile>({
     name: '',
@@ -378,7 +392,7 @@ export default function SettingsScreen({ onClose, onLogout }: Props) {
               ) : (
                 <TouchableOpacity
                   style={[styles.validateButton, { backgroundColor: '#10a37f', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }]}
-                  onPress={() => { /* Will be handled by ChatGPT OAuth hook in parent */ }}
+                  onPress={() => oaiPromptAsync()}
                 >
                   <Text style={[styles.validateButtonText, { fontSize: 15 }]}>登入 ChatGPT</Text>
                 </TouchableOpacity>
