@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../utils/useColorScheme';
 import { BorderRadius, FontSize, Spacing } from '../utils/theme';
 import SettingsScreen from './SettingsScreen';
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
   const colors = useThemeColors();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -65,12 +67,12 @@ export default function DashboardScreen() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>快速動作</Text>
         <View style={styles.actionsGrid}>
           {[
-            { icon: '📸', label: '記錄飲食', color: colors.softPink },
-            { icon: '💪', label: '開始訓練', color: colors.softBlue },
-            { icon: '⚖️', label: '量體重', color: colors.softYellow },
-            { icon: '🤖', label: '問 AI', color: colors.softPurple },
+            { icon: '📸', label: '記錄飲食', color: colors.softPink, tab: '飲食' },
+            { icon: '💪', label: '開始訓練', color: colors.softBlue, tab: '訓練' },
+            { icon: '⚖️', label: '量體重', color: colors.softYellow, tab: '身體' },
+            { icon: '🤖', label: '問 AI', color: colors.softPurple, tab: '教練' },
           ].map((action, i) => (
-            <TouchableOpacity key={i} style={[styles.actionCard, { backgroundColor: action.color }]}>
+            <TouchableOpacity key={i} style={[styles.actionCard, { backgroundColor: action.color }]} onPress={() => navigation.navigate(action.tab)}>
               <Text style={{ fontSize: 28 }}>{action.icon}</Text>
               <Text style={[styles.actionLabel, { color: colors.text }]}>{action.label}</Text>
             </TouchableOpacity>
