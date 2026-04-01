@@ -44,6 +44,7 @@ class GeminiService {
   private async _send(prompt: string): Promise<Record<string, any>> {
     try {
       await this.ensureInitialized();
+      console.log('[Gemini] token:', this.accessToken ? 'YES (' + this.accessToken.substring(0, 15) + '...)' : 'NO');
       if (!this.accessToken) throw new Error('請先登入 Google 帳號');
 
       const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
@@ -57,16 +58,20 @@ class GeminiService {
         }),
       });
 
+      console.log('[Gemini] response status:', res.status);
+      const rawBody = await res.text();
+      console.log('[Gemini] response body:', rawBody.substring(0, 300));
+
       if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`API 錯誤 ${res.status}: ${err}`);
+        throw new Error(`API 錯誤 ${res.status}: ${rawBody}`);
       }
 
-      const data = await res.json();
+      const data = JSON.parse(rawBody);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return { error: 'AI 沒有回傳任何內容' };
       return parseResponse(text);
     } catch (e: any) {
+      console.error('[Gemini] error:', e);
       return { error: `AI 請求失敗：${e.message}` };
     }
   }
